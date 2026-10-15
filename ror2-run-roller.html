@@ -1,0 +1,601 @@
+<title>RoR2 런 추첨기</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbit&family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: drop-pod manifest — settings console on the left, assignment manifest on the right; stacks with the manifest first on phones. */
+:root{
+  --bg:#E8ECEE; --panel:#F7F9FA; --sunk:#DDE3E6; --ink:#17202A; --muted:#566573; --line:#C5CED4;
+  --accent:#D4521B; --accent-ink:#FFFFFF; --accent-soft:#F6DCCF;
+  --uncommon:#2F8A45; --lunar:#3B68C9; --boss:#B98A10; --warn:#9A5B00; --warn-bg:#FBEBCB;
+  --f-display:"Orbit","IBM Plex Sans KR",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans KR",system-ui,-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0F151B; --panel:#17202A; --sunk:#111920; --ink:#E4EAEE; --muted:#93A3B0; --line:#2A3743;
+  --accent:#EE7A3F; --accent-ink:#1A0E07; --accent-soft:#3A2219;
+  --uncommon:#6CC07E; --lunar:#86A8FF; --boss:#E2B840; --warn:#F2BE62; --warn-bg:#33270F; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0F151B; --panel:#17202A; --sunk:#111920; --ink:#E4EAEE; --muted:#93A3B0; --line:#2A3743;
+  --accent:#EE7A3F; --accent-ink:#1A0E07; --accent-soft:#3A2219;
+  --uncommon:#6CC07E; --lunar:#86A8FF; --boss:#E2B840; --warn:#F2BE62; --warn-bg:#33270F; color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:20px}
+button,input,select{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+header.top{display:flex;flex-wrap:wrap;align-items:flex-end;justify-content:space-between;gap:12px;border-bottom:1px solid var(--line);padding-bottom:14px}
+header.top h1{font-family:var(--f-display);font-weight:400;font-size:clamp(26px,4.4vw,38px);line-height:1.1;margin:0;letter-spacing:.01em;text-wrap:balance}
+header.top p{margin:4px 0 0;color:var(--muted);font-size:14px}
+.codes{font-family:var(--f-mono);font-size:13px;color:var(--muted);letter-spacing:.3em}
+.codes b{color:var(--accent);font-weight:500}
+
+.layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.3fr);gap:20px;align-items:start}
+@media (max-width:880px){.layout{grid-template-columns:minmax(0,1fr)}.manifest{order:-1}}
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px}
+.sec{padding:16px;display:flex;flex-direction:column;gap:12px}
+.sec + .sec{border-top:1px solid var(--line)}
+.sec-h{display:flex;align-items:baseline;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.sec-h h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.sec-h .mini{display:flex;gap:6px}
+.hint{font-size:13px;color:var(--muted);margin:0}
+
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:4px;padding:6px 11px;cursor:pointer;font-size:13px;line-height:1.3}
+.btn:hover{border-color:var(--ink)}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--muted)}
+.btn.ghost:hover{color:var(--ink);border-color:var(--line)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.btn.primary:hover{filter:brightness(1.06)}
+.btn[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--panel)}
+
+/* players */
+.plist{display:flex;flex-direction:column;gap:8px}
+.prow{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px;align-items:center;background:var(--sunk);border-radius:4px;padding:8px}
+.prow input[type=text]{min-width:0;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px 8px}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{border:0;background:var(--panel);padding:6px 10px;font-size:13px;cursor:pointer;color:var(--muted)}
+.seg button[aria-pressed="true"]{background:var(--ink);color:var(--panel)}
+.prow .fixsel{grid-column:1 / -1;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:6px 8px}
+.x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:18px;line-height:1;padding:4px 6px;border-radius:4px}
+.x:hover{color:var(--accent)}
+
+/* toggles */
+.row{display:flex;flex-wrap:wrap;gap:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--line);background:var(--panel);border-radius:999px;padding:4px 11px;font-size:13px;cursor:pointer;user-select:none}
+.chip[aria-pressed="false"]{color:var(--muted);background:transparent;text-decoration:line-through;text-decoration-color:var(--line)}
+.chip[aria-pressed="true"]{border-color:var(--ink)}
+.chip .tag{font-family:var(--f-mono);font-size:10px;color:var(--muted);text-decoration:none}
+.chip:disabled{opacity:.35;cursor:not-allowed}
+.switch{display:flex;align-items:center;gap:8px;font-size:14px;cursor:pointer}
+.switch input{accent-color:var(--accent);width:16px;height:16px}
+.num{display:flex;align-items:center;gap:8px;font-size:14px;flex-wrap:wrap}
+.num input{width:62px;background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:5px 6px;font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+
+/* artifact pool */
+.alist{display:flex;flex-direction:column;border:1px solid var(--line);border-radius:4px;max-height:420px;overflow:auto}
+.ico{width:var(--s,36px);height:var(--s,36px);flex:none;border-radius:5px;background:var(--panel);border:1px solid var(--line);display:grid;place-items:center;overflow:hidden}
+.ico.has-img{background:transparent;border-color:transparent}
+.ico img{width:100%;height:100%;object-fit:contain;display:block}
+.ico .g{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;width:72%;height:72%;place-items:center;font-family:var(--f-mono);font-size:calc(var(--s) * .2);line-height:1;color:var(--lunar)}
+.ico .g i{font-style:normal}
+.ico .ini{font-family:var(--f-display);font-size:calc(var(--s) * .46);line-height:1;color:var(--accent)}
+.chip .sico{border-radius:3px;text-decoration:none}
+.chip[aria-pressed="false"] .sico{opacity:.5}
+.sline{display:flex;gap:12px;align-items:center;min-width:0}
+.sinfo{display:flex;flex-direction:column;gap:4px;min-width:0}
+.card.spinning .sico > *{visibility:hidden}
+.ico .none-code{display:block;width:auto;height:auto;font-size:calc(var(--s) * .45);color:var(--muted)}
+.arow{display:grid;grid-template-columns:auto auto minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 10px;border-bottom:1px solid var(--line)}
+.arow:last-child{border-bottom:0}
+.arow.off .aname,.arow.off .adesc{color:var(--muted);opacity:.6}
+.arow.na{opacity:.4}
+.arow input{accent-color:var(--accent);width:16px;height:16px}
+.aname{font-weight:600;font-size:14px}
+.aname .en{font-family:var(--f-mono);font-weight:400;font-size:11px;color:var(--muted);margin-left:6px}
+.adesc{font-size:12.5px;color:var(--muted);line-height:1.45}
+.pin{border:1px solid var(--line);background:transparent;border-radius:4px;font-size:12px;padding:3px 7px;cursor:pointer;color:var(--muted);white-space:nowrap}
+.pin[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+
+/* manifest */
+.manifest{display:flex;flex-direction:column;gap:14px}
+.rollbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.rollbar .btn.primary{font-family:var(--f-display);font-weight:400;font-size:18px;padding:11px 22px;letter-spacing:.04em}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.card.locked{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.card .who{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:13px;color:var(--muted)}
+.card .who b{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.badge{font-family:var(--f-mono);font-size:10.5px;letter-spacing:.06em;padding:2px 6px;border-radius:3px;border:1px solid var(--line);white-space:nowrap;color:var(--muted)}
+.badge.fixed{color:var(--lunar);border-color:var(--lunar)}
+.badge.lock{color:var(--accent);border-color:var(--accent)}
+.sname{font-family:var(--f-display);font-size:26px;line-height:1.15;min-height:30px;overflow-wrap:anywhere}
+.sname.free{color:var(--muted);font-size:20px}
+.ssub{font-family:var(--f-mono);font-size:12px;color:var(--muted);display:flex;gap:8px;flex-wrap:wrap}
+.card .acts{display:flex;gap:6px;margin-top:4px}
+.err{color:var(--accent);font-size:13px}
+
+.artbox{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:14px;display:flex;flex-direction:column;gap:10px}
+.artbox.locked{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.artbox .head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.artbox .head h3{margin:0;font-size:12px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.arts{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:8px}
+.art{border:1px solid var(--line);border-radius:4px;padding:9px 10px;display:flex;gap:10px;align-items:flex-start;background:var(--sunk);min-width:0}
+.art .ab{display:flex;flex-direction:column;gap:3px;min-width:0}
+.art .t{font-weight:600}
+.art .c{font-family:var(--f-mono);font-size:12px;letter-spacing:.18em;color:var(--lunar)}
+.art .d{font-size:12.5px;color:var(--muted);line-height:1.45}
+.art.pinned{border-color:var(--accent)}
+.none{color:var(--muted);font-size:14px}
+.warn{background:var(--warn-bg);color:var(--warn);border-radius:4px;padding:8px 10px;font-size:13px}
+
+.copyout{width:100%;min-height:120px;font-family:var(--f-mono);font-size:12.5px;background:var(--sunk);border:1px solid var(--line);border-radius:4px;padding:8px;color:var(--ink)}
+.toast{font-size:13px;color:var(--uncommon);min-height:1em}
+
+.hist{display:flex;flex-direction:column;gap:6px;font-size:13px}
+.hist li{list-style:none;border-left:2px solid var(--line);padding:2px 0 2px 10px;color:var(--muted)}
+.hist li b{color:var(--ink);font-weight:500}
+.hist ol{margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.hist time{font-family:var(--f-mono);font-size:11px;margin-right:6px}
+
+.rolling{color:var(--muted)}
+@media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important}}
+footer{font-size:12px;color:var(--muted)}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>RoR2 런 추첨기</h1>
+      <p>멀티플레이 파티의 생존자와 유물을 무작위로 정합니다. 원하는 플레이어는 추첨에서 빼고 직접 고르게 할 수 있습니다.</p>
+    </div>
+    <div class="codes" aria-hidden="true"><b>■</b>●▲♦ ●<b>▲</b>● ♦■<b>●</b></div>
+  </header>
+
+  <div class="layout">
+    <!-- settings -->
+    <div class="panel" id="settings">
+      <section class="sec">
+        <div class="sec-h"><h2>플레이어</h2><div class="mini"><button class="btn" id="add-player">+ 플레이어 추가</button></div></div>
+        <div class="plist" id="plist"></div>
+        <p class="hint">랜덤: 추첨 대상 · 직접: 추첨에서 제외하고 생존자를 직접 지정(비워 두면 자유 선택)</p>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2>DLC</h2></div>
+        <div class="row" id="dlc-row"></div>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2>생존자 풀</h2><div class="mini"><button class="btn ghost" id="surv-all">전부 켜기</button><button class="btn ghost" id="surv-none">전부 끄기</button></div></div>
+        <div class="row" id="surv-row"></div>
+        <label class="switch"><input type="checkbox" id="allow-dup"> 같은 생존자 중복 허용</label>
+        <p class="hint">해금하지 않았거나 이번 판에 쓰기 싫은 생존자는 꺼 두세요.</p>
+      </section>
+
+      <section class="sec">
+        <div class="sec-h"><h2>유물</h2><div class="mini"><button class="btn ghost" id="art-all">전부 켜기</button><button class="btn ghost" id="art-none">전부 끄기</button></div></div>
+        <div class="num">
+          <label for="art-min">개수</label>
+          <input type="number" id="art-min" min="0" max="20">
+          <span>~</span>
+          <input type="number" id="art-max" min="0" max="20">
+          <span class="hint">개 사이에서 무작위</span>
+        </div>
+        <div class="alist" id="alist"></div>
+        <p class="hint">체크 해제 = 추첨 풀에서 제외 · 고정 = 매번 반드시 포함</p>
+      </section>
+    </div>
+
+    <!-- manifest -->
+    <div class="manifest">
+      <div class="rollbar">
+        <button class="btn primary" id="roll-all">추첨</button>
+        <button class="btn" id="roll-surv">생존자만 다시</button>
+        <button class="btn" id="roll-art">유물만 다시</button>
+        <button class="btn" id="copy">결과 복사</button>
+        <span class="toast" id="toast" role="status"></span>
+      </div>
+      <textarea class="copyout" id="copyout" readonly hidden aria-label="복사할 결과 텍스트"></textarea>
+
+      <div class="cards" id="cards"></div>
+
+      <div class="artbox" id="artbox">
+        <div class="head">
+          <h3>이번 런의 유물</h3>
+          <button class="btn" id="art-lock" aria-pressed="false">유물 잠금</button>
+        </div>
+        <div id="arts"></div>
+        <div id="warns" class="row"></div>
+      </div>
+
+      <div class="panel sec">
+        <div class="sec-h"><h2>최근 추첨</h2><div class="mini"><button class="btn ghost" id="hist-clear">기록 지우기</button></div></div>
+        <div class="hist" id="hist"></div>
+      </div>
+    </div>
+  </div>
+  <footer>생존자·유물 목록은 riskofrain2.wiki.gg 기준(거룩한 개념 DLC까지), 이름과 유물 설명은 게임 내 한국어 번역 기준입니다. 설정은 이 브라우저에만 저장됩니다.</footer>
+</div>
+
+<script>
+/* ===== 데이터 (한국어 이름은 여기서 수정) ===== */
+const DLCS = [
+  {id:'sotv', label:'공허의 생존자',  en:'Survivors of the Void', short:'SotV'},
+  {id:'sots', label:'폭풍의 구도자',  en:'Seekers of the Storm',  short:'SotS'},
+  {id:'ac',   label:'합금 집합체',    en:'Alloyed Collective',    short:'AC'},
+  {id:'hc',   label:'거룩한 개념',    en:'Hallowed Concepts',     short:'HC'},
+];
+/* 이름·설명은 게임 내 한국어 번역(용어집 JSON) 기준. 지휘의 유물 설명만 용어집에 없어 직접 작성. */
+const SURV = [
+  {id:'commando',  ko:'코만도',       en:'Commando',   dlc:'base'},
+  {id:'huntress',  ko:'헌트리스',     en:'Huntress',   dlc:'base'},
+  {id:'bandit',    ko:'도적',         en:'Bandit',     dlc:'base'},
+  {id:'mult',      ko:'MUL-T',        en:'MUL-T',      dlc:'base'},
+  {id:'engineer',  ko:'엔지니어',     en:'Engineer',   dlc:'base'},
+  {id:'artificer', ko:'아티피셔',     en:'Artificer',  dlc:'base'},
+  {id:'mercenary', ko:'머셔너리',     en:'Mercenary',  dlc:'base'},
+  {id:'rex',       ko:'렉스',         en:'REX',        dlc:'base'},
+  {id:'loader',    ko:'로더',         en:'Loader',     dlc:'base'},
+  {id:'acrid',     ko:'애크리드',     en:'Acrid',      dlc:'base'},
+  {id:'captain',   ko:'캡틴',         en:'Captain',    dlc:'base'},
+  {id:'railgunner',ko:'레일거너',     en:'Railgunner', dlc:'sotv'},
+  {id:'voidfiend', ko:'공허 악마',    en:'Void Fiend', dlc:'sotv'},
+  {id:'seeker',    ko:'시커',         en:'Seeker',     dlc:'sots'},
+  {id:'falseson',  ko:'거짓된 자손',  en:'False Son',  dlc:'sots'},
+  {id:'chef',      ko:'셰프',         en:'CHEF',       dlc:'sots'},
+  {id:'operator',  ko:'오퍼레이터',   en:'Operator',   dlc:'ac'},
+  {id:'drifter',   ko:'드리프터',     en:'Drifter',    dlc:'ac'},
+  {id:'enforcer',  ko:'인포서',       en:'Enforcer',   dlc:'hc'},
+  {id:'acolyte',   ko:'애콜라이트',   en:'Acolyte',    dlc:'hc'},
+];
+const ART = [
+  {id:'chaos',        ko:'혼돈의 유물',     en:'Chaos',         dlc:'base', code:'●▲● ●▲● ●▲●', d:'생존자와 몬스터 모두 자기 편에게 피해를 줄 수 있습니다.'},
+  {id:'command',      ko:'지휘의 유물',     en:'Command',       dlc:'base', code:'■■■ ■■■ ▲▲▲', d:'아이템이 지휘의 정수로 떨어지고, 원하는 아이템을 직접 고릅니다.'},
+  {id:'death',        ko:'죽음의 유물',     en:'Death',         dlc:'base', code:'●●● ■▲■ ●▲●', d:'플레이어 한 명이 죽으면 팀 전원이 죽습니다.'},
+  {id:'delusion',     ko:'망상의 유물',     en:'Delusion',      dlc:'base', code:'■●■ ●●● ■▲■', d:'텔레포터 이벤트를 완료한 뒤 소유한 아이템을 걸고 기억력 시험에 도전합니다. 통과하면 추가 아이템을 얻습니다.'},
+  {id:'devotion',     ko:'헌신의 유물',     en:'Devotion',      dlc:'base', code:'▲♦▲ ■♦■ ♦▲♦', d:'부서진 드론을 레무리안 알로 교체합니다. 레무리안 알에 아이템을 바치면 추종자를 얻습니다.'},
+  {id:'dissonance',   ko:'불협화음의 유물', en:'Dissonance',    dlc:'base', code:'●■■ ■■■ ■■●', d:'몬스터가 원래 안 나타나던 곳에서 나타날 수 있습니다.'},
+  {id:'enigma',       ko:'수수께끼의 유물', en:'Enigma',        dlc:'base', code:'♦■■ ▲■▲ ●♦♦', d:'활성화할 때마다 변하는 무작위 장비를 가진 채 생성됩니다.'},
+  {id:'evolution',    ko:'진화의 유물',     en:'Evolution',     dlc:'base', code:'♦♦♦ ■■■ ●●●', d:'스테이지를 넘어가면 몬스터가 아이템을 획득합니다.'},
+  {id:'frailty',      ko:'노쇠의 유물',     en:'Frailty',       dlc:'base', code:'●●● ▲●▲ ▲▲▲', d:'추락 피해가 두 배가 되며 치명적입니다.'},
+  {id:'glass',        ko:'유리의 유물',     en:'Glass',         dlc:'base', code:'♦♦♦ ♦♦♦ ♦♦♦', d:'팀원이 500% 피해를 주지만, 체력이 10%가 됩니다.'},
+  {id:'honor',        ko:'명예의 유물',     en:'Honor',         dlc:'base', code:'■■■ ■▲■ ■■■', d:'엘리트 적만 생성됩니다.'},
+  {id:'kin',          ko:'친족의 유물',     en:'Kin',           dlc:'base', code:'●▲▲ ♦●▲ ♦♦●', d:'각 스테이지의 몬스터가 한 가지 유형으로 통일됩니다.'},
+  {id:'metamorphosis',ko:'탈태의 유물',     en:'Metamorphosis', dlc:'base', code:'♦■● ♦■● ♦■●', d:'플레이어는 항상 무작위 생존자로 생성됩니다.'},
+  {id:'prestige',     ko:'위신의 유물',     en:'Prestige',      dlc:'ac',   code:'▲●● ■●▲ ●●■', d:'산의 성소는 스테이지마다 하나 이상 생성됩니다. 산의 성소 효과는 영구적으로 지속됩니다.'},
+  {id:'rebirth',      ko:'환생의 유물',     en:'Rebirth',       dlc:'sots', code:'코드 없음',     d:'지난 삶에서 얻은 재능을 가지고 페트리코르 V로 내려가세요.'},
+  {id:'sacrifice',    ko:'희생의 유물',     en:'Sacrifice',     dlc:'base', code:'▲▲▲ ▲▲▲ ▲♦▲', d:'몬스터가 죽을 때 아이템을 떨어뜨리는 대신 상자가 생성되지 않습니다.'},
+  {id:'soul',         ko:'영혼의 유물',     en:'Soul',          dlc:'base', code:'●■● ●♦● ■♦■', d:'쓰러진 몬스터에게서 위습이 나타납니다.'},
+  {id:'spite',        ko:'악의의 유물',     en:'Spite',         dlc:'base', code:'▲●▲ ●●● ▲●▲', d:'적이 죽으면 그 자리에 폭발하는 폭탄이 몇 개 떨어집니다.'},
+  {id:'swarms',       ko:'무리의 유물',     en:'Swarms',        dlc:'base', code:'●●▲ ▲♦▲ ▲●●', d:'몬스터 수가 두 배가 되지만, 최대 체력은 절반이 됩니다.'},
+  {id:'vengeance',    ko:'복수의 유물',     en:'Vengeance',     dlc:'base', code:'♦■■ ♦●■ ♦■■', d:'10분마다 끈질긴 도플갱어가 나타나 괴롭힙니다.'},
+];
+/* ===== 유물 아이콘 자리 =====
+   각 유물의 '' 안에 이미지 주소를 넣으세요.
+   - 같은 폴더의 파일:   'icons/chaos.png'
+   - 이미지 데이터 URI:  'data:image/png;base64,....'
+   - 로컬 사본에서는 일반 https:// 주소도 됩니다. (claude.ai에 올린 페이지는 외부 이미지를 막습니다)
+   비워 두거나 이미지를 못 불러오면 입력 코드 격자가 대신 표시됩니다. */
+const ART_ICON = {
+  chaos:'icons/Chaos.png', command:'icons/Command.png', death:'icons/Death.png', delusion:'icons/Delusion.png', devotion:'icons/Devotion.png',
+  dissonance:'icons/Dissonance.png', enigma:'icons/Enigma.png', evolution:'icons/Evolution.png', frailty:'icons/Frailty.png', glass:'icons/Glass.png',
+  honor:'icons/Honor.png', kin:'icons/Kin.png', metamorphosis:'icons/Metamorphosis.png', prestige:'icons/Prestige.png', rebirth:'icons/Rebirth.png',
+  sacrifice:'icons/Sacrifice.png', soul:'icons/Soul.png', spite:'icons/Spite.png', swarms:'icons/Swarms.png', vengeance:'icons/Vengeance.png',
+};
+/* ===== 생존자 아이콘 자리 =====
+   유물과 같은 방식으로 '' 안에 이미지 주소를 넣으세요. 예: 'icons/commando.png'
+   비워 두거나 이미지를 못 불러오면 이름 첫 글자가 대신 표시됩니다. */
+const SURV_ICON = {
+  commando:'survivors/Commando.png', huntress:'survivors/Huntress.png', bandit:'survivors/Bandit.png', mult:'survivors/MUL-T.png', engineer:'survivors/Engineer.png',
+  artificer:'survivors/Artificer.png', mercenary:'survivors/Mercenary.png', rex:'survivors/REX.png', loader:'survivors/Loader.png', acrid:'survivors/Acrid.png',
+  captain:'survivors/Captain.png', railgunner:'survivors/RailGunner.png', voidfiend:'survivors/Void_Fiend.png', seeker:'survivors/Seeker.png', falseson:'survivors/False_Son.png',
+  chef:'survivors/CHEF.png', operator:'survivors/Operator.png', drifter:'survivors/Drifter.png', enforcer:'survivors/Enforcer.png', acolyte:'survivors/Acolyte.png',
+};
+const SV = Object.fromEntries(SURV.map(s=>[s.id,s]));
+const AV = Object.fromEntries(ART.map(a=>[a.id,a]));
+const dlcShort = id => (DLCS.find(d=>d.id===id)||{short:'기본'}).short;
+
+/* ===== 상태 ===== */
+const KEY = 'ror2-run-roller-v1';
+let uid = 1;
+const newPlayer = name => ({id:'p'+(uid++), name, mode:'random', fixed:'', result:null, locked:false});
+let S = {
+  players:[newPlayer('플레이어 1'), newPlayer('플레이어 2'), newPlayer('플레이어 3')],
+  dlc:{sotv:true,sots:true,ac:true,hc:true},
+  survOff:[], allowDup:false,
+  artMin:1, artMax:3, artOff:['metamorphosis'], artPin:[],
+  artResult:[], artLocked:false, history:[]
+};
+let firstRun = true;
+try{
+  const raw = localStorage.getItem(KEY);
+  if(raw){ const o = JSON.parse(raw); if(o && Array.isArray(o.players) && o.players.length){ S = Object.assign(S,o); firstRun=false; } }
+}catch(e){}
+S.players.forEach(p=>{ const n=parseInt(String(p.id).slice(1)); if(n>=uid) uid=n+1; });
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){} }
+
+/* ===== 무작위 ===== */
+function rnd(n){ if(n<=0) return 0; try{ const a=new Uint32Array(1); crypto.getRandomValues(a); return a[0]%n; }catch(e){ return Math.floor(Math.random()*n); } }
+const pick = arr => arr[rnd(arr.length)];
+function shuffle(arr){ const a=arr.slice(); for(let i=a.length-1;i>0;i--){ const j=rnd(i+1); [a[i],a[j]]=[a[j],a[i]]; } return a; }
+const dlcOn = id => id==='base' || !!S.dlc[id];
+const survPool = () => SURV.filter(s=>dlcOn(s.dlc) && !S.survOff.includes(s.id));
+const artPool  = () => ART.filter(a=>dlcOn(a.dlc) && !S.artOff.includes(a.id));
+
+function rollSurvivors(onlyId){
+  const pool = survPool();
+  const taken = new Set();
+  if(!S.allowDup){
+    S.players.forEach(p=>{
+      if(p.mode==='fixed' && p.fixed) taken.add(p.fixed);
+      else if(p.mode==='random' && p.result && (p.locked || (onlyId && p.id!==onlyId))) taken.add(p.result);
+    });
+  }
+  const changed = [];
+  S.players.forEach(p=>{
+    if(p.mode!=='random'){ p.result=null; return; }
+    if(p.locked || (onlyId && p.id!==onlyId)) return;
+    let cand = pool.filter(s=>S.allowDup || !taken.has(s.id));
+    if(onlyId && cand.length>1) cand = cand.filter(s=>s.id!==p.result);
+    if(!cand.length){ p.result=null; changed.push(p.id); return; }
+    const s = pick(cand); p.result = s.id; taken.add(s.id); changed.push(p.id);
+  });
+  return changed;
+}
+function rollArtifacts(){
+  if(S.artLocked) return false;
+  const pool = artPool();
+  const pins = pool.filter(a=>S.artPin.includes(a.id));
+  const rest = shuffle(pool.filter(a=>!S.artPin.includes(a.id)));
+  const lo = Math.max(0,Math.min(S.artMin,S.artMax)), hi = Math.max(S.artMin,S.artMax);
+  let n = lo + rnd(hi-lo+1);
+  n = Math.min(Math.max(n,pins.length), pool.length);
+  const ids = new Set([...pins,...rest.slice(0,n-pins.length)].map(a=>a.id));
+  S.artResult = ART.filter(a=>ids.has(a.id)).map(a=>a.id);
+  return true;
+}
+function pushHistory(){
+  const t = new Date();
+  S.history.unshift({
+    t: String(t.getHours()).padStart(2,'0')+':'+String(t.getMinutes()).padStart(2,'0'),
+    p: S.players.map(p=>[p.name, labelFor(p)]),
+    a: S.artResult.map(id=>AV[id].ko.replace('의 유물',''))
+  });
+  S.history = S.history.slice(0,6);
+}
+function labelFor(p){
+  if(p.mode==='fixed') return p.fixed ? SV[p.fixed].ko+' (직접)' : '자유 선택';
+  return p.result ? SV[p.result].ko : '배정 실패';
+}
+
+/* ===== 렌더 ===== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const reduceMotion = () => { try{ return matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){ return false; } };
+
+function codeGrid(a){
+  const g = a.code.replace(/\s+/g,'');
+  if([...g].length!==9) return `<span class="g none-code" aria-hidden="true">?</span>`;
+  return `<span class="g" aria-hidden="true">${[...g].map(c=>`<i>${c}</i>`).join('')}</span>`;
+}
+function initial(s){ return `<span class="ini" aria-hidden="true">${esc([...s.ko][0]||'?')}</span>`; }
+function survIconHTML(s, size){
+  if(!s) return `<span class="ico sico" style="--s:${size}px"><span class="ini" aria-hidden="true">?</span></span>`;
+  const src = (SURV_ICON[s.id]||'').trim();
+  const inner = src ? `<img src="${esc(src)}" alt="" loading="lazy">` : initial(s);
+  return `<span class="ico sico ${src?'has-img':''}" style="--s:${size}px" data-sico="${s.id}">${inner}</span>`;
+}
+function iconHTML(a, size){
+  const src = (ART_ICON[a.id]||'').trim();
+  const inner = src ? `<img src="${esc(src)}" alt="" loading="lazy" data-art="${a.id}">` : codeGrid(a);
+  return `<span class="ico ${src?'has-img':''}" style="--s:${size}px" data-ico="${a.id}">${inner}</span>`;
+}
+document.addEventListener('error', e=>{
+  const img = e.target;
+  if(!(img instanceof HTMLImageElement) || !img.closest('.ico')) return;
+  const box = img.closest('.ico');
+  if(box.dataset.sico){ const s = SV[box.dataset.sico]; if(!s) return; box.classList.remove('has-img'); box.innerHTML = initial(s); return; }
+  const a = AV[box.dataset.ico]; if(!a) return;
+  box.classList.remove('has-img'); box.innerHTML = codeGrid(a);
+}, true);
+
+function renderPlayers(){
+  const opts = SURV.filter(s=>dlcOn(s.dlc)).map(s=>`<option value="${s.id}">${esc(s.ko)} · ${esc(s.en)}</option>`).join('');
+  $('plist').innerHTML = S.players.map(p=>`
+    <div class="prow" data-id="${p.id}">
+      <input type="text" id="pname-${p.id}" value="${esc(p.name)}" maxlength="24" aria-label="플레이어 이름">
+      <div class="seg" role="group" aria-label="배정 방식">
+        <button data-act="mode" data-mode="random" aria-pressed="${p.mode==='random'}">랜덤</button>
+        <button data-act="mode" data-mode="fixed" aria-pressed="${p.mode==='fixed'}">직접</button>
+      </div>
+      <button class="x" data-act="remove" aria-label="${esc(p.name)} 삭제" ${S.players.length<=1?'disabled':''}>×</button>
+      ${p.mode==='fixed' ? `<select class="fixsel" id="pfix-${p.id}" data-act="fix" aria-label="직접 고를 생존자"><option value="">자유 선택 (지정 안 함)</option>${opts}</select>` : ''}
+    </div>`).join('');
+  S.players.forEach(p=>{ const sel=$('pfix-'+p.id); if(sel) sel.value = (p.fixed && dlcOn(SV[p.fixed].dlc)) ? p.fixed : ''; });
+}
+function renderDlc(){
+  $('dlc-row').innerHTML = DLCS.map(d=>`<button class="chip" data-dlc="${d.id}" aria-pressed="${!!S.dlc[d.id]}">${esc(d.label)}<span class="tag">${d.short}</span></button>`).join('');
+}
+function renderSurvPool(){
+  $('surv-row').innerHTML = SURV.map(s=>{
+    const on = !S.survOff.includes(s.id), avail = dlcOn(s.dlc);
+    return `<button class="chip" data-surv="${s.id}" aria-pressed="${on && avail}" ${avail?'':'disabled'} title="${esc(s.en)}">${survIconHTML(s,20)}${esc(s.ko)}${s.dlc!=='base'?`<span class="tag">${dlcShort(s.dlc)}</span>`:''}</button>`;
+  }).join('');
+  $('allow-dup').checked = S.allowDup;
+}
+function renderArtPool(){
+  $('art-min').value = S.artMin; $('art-max').value = S.artMax;
+  $('alist').innerHTML = ART.map(a=>{
+    const on = !S.artOff.includes(a.id), avail = dlcOn(a.dlc), pinned = S.artPin.includes(a.id);
+    return `<div class="arow ${on?'':'off'} ${avail?'':'na'}">
+      <input type="checkbox" id="art-${a.id}" data-art="${a.id}" ${on?'checked':''} ${avail?'':'disabled'} aria-label="${esc(a.ko)} 풀에 포함">
+      ${iconHTML(a,32)}
+      <label for="art-${a.id}" style="min-width:0;cursor:pointer">
+        <div class="aname">${esc(a.ko)}<span class="en">${esc(a.en)}${a.dlc!=='base'?' · '+dlcShort(a.dlc):''}</span></div>
+        <div class="adesc">${esc(a.d)}</div>
+      </label>
+      <button class="pin" data-pin="${a.id}" aria-pressed="${pinned}" ${avail?'':'disabled'}>${pinned?'고정됨':'고정'}</button>
+    </div>`;
+  }).join('');
+}
+function cardHTML(p){
+  let main, sub='', badge, cls='';
+  if(p.mode==='fixed'){
+    badge = '<span class="badge fixed">추첨 제외</span>';
+    if(p.fixed){ const s=SV[p.fixed]; main=`<div class="sname" id="sn-${p.id}">${esc(s.ko)}</div>`; sub=`<div class="ssub"><span>${esc(s.en)}</span><span>직접 지정</span></div>`; }
+    else { main=`<div class="sname free" id="sn-${p.id}">자유 선택</div>`; sub=`<div class="ssub"><span>원하는 생존자를 고르세요</span></div>`; }
+  }else{
+    badge = p.locked ? '<span class="badge lock">잠금</span>' : '<span class="badge">랜덤</span>';
+    if(p.locked) cls='locked';
+    if(p.result){ const s=SV[p.result]; main=`<div class="sname" id="sn-${p.id}">${esc(s.ko)}</div>`; sub=`<div class="ssub" id="ss-${p.id}"><span>${esc(s.en)}</span>${s.dlc!=='base'?`<span>${dlcShort(s.dlc)}</span>`:''}</div>`; }
+    else { main=`<div class="sname free" id="sn-${p.id}">—</div>`; sub=`<div class="err">남은 생존자가 없습니다. 풀을 넓히거나 중복을 허용하세요.</div>`; }
+  }
+  const acts = p.mode==='random'
+    ? `<div class="acts"><button class="btn" data-act="reroll" ${p.locked?'disabled':''}>다시 뽑기</button><button class="btn" data-act="lock" aria-pressed="${p.locked}">${p.locked?'잠금 해제':'잠금'}</button></div>` : '';
+  return `<article class="card ${cls}" data-id="${p.id}"><div class="who"><b id="cn-${p.id}">${esc(p.name)}</b>${badge}</div><div class="sline">${survIconHTML(p.mode==='fixed' ? (p.fixed?SV[p.fixed]:null) : (p.result?SV[p.result]:null), 52)}<div class="sinfo">${main}${sub}</div></div>${acts}</article>`;
+}
+function renderCards(animIds){
+  $('cards').innerHTML = S.players.map(cardHTML).join('');
+  if(animIds && animIds.length && !reduceMotion()) animate(animIds);
+}
+function animate(ids){
+  const names = survPool().map(s=>s.ko); if(names.length<2) return;
+  ids.forEach((id,i)=>{
+    const el = $('sn-'+id); const p = S.players.find(x=>x.id===id);
+    if(!el || !p || !p.result) return;
+    const final = SV[p.result].ko; el.classList.add('rolling');
+    const card = el.closest('.card'); if(card) card.classList.add('spinning');
+    const iv = setInterval(()=>{ el.textContent = pick(names); }, 55);
+    setTimeout(()=>{ clearInterval(iv); el.textContent = final; el.classList.remove('rolling'); if(card) card.classList.remove('spinning'); }, 520 + i*170);
+  });
+}
+function renderArts(){
+  const box = $('artbox');
+  box.classList.toggle('locked', S.artLocked);
+  const lb = $('art-lock'); lb.setAttribute('aria-pressed', S.artLocked); lb.textContent = S.artLocked ? '유물 잠금 해제' : '유물 잠금';
+  $('roll-art').disabled = S.artLocked;
+  $('arts').innerHTML = S.artResult.length
+    ? `<div class="arts">${S.artResult.map(id=>{ const a=AV[id]; return `<div class="art ${S.artPin.includes(id)?'pinned':''}">${iconHTML(a,44)}<div class="ab"><span class="t">${esc(a.ko)} <span class="en" style="font-family:var(--f-mono);font-weight:400;font-size:11px;color:var(--muted)">${esc(a.en)}</span></span><span class="c">${esc(a.code)}</span><span class="d">${esc(a.d)}</span></div></div>`; }).join('')}</div>`
+    : `<p class="none">유물 없이 진행합니다.</p>`;
+  const w = [];
+  const has = id => S.artResult.includes(id);
+  if(has('metamorphosis')) w.push('탈태의 유물이 걸려서 게임 안에서 생존자가 무작위로 바뀝니다. 위 생존자 배정은 참고용입니다.');
+  if(has('sacrifice') && has('delusion')) w.push('희생의 유물과 같이 켜면 망상의 유물은 아무 효과가 없습니다.');
+  if(has('death') && S.players.length===1) w.push('혼자서는 죽음의 유물이 의미가 없습니다.');
+  $('warns').innerHTML = w.map(t=>`<div class="warn">${esc(t)}</div>`).join('');
+}
+function renderHistory(){
+  $('hist').innerHTML = S.history.length
+    ? `<ol>${S.history.map(h=>`<li><time>${esc(h.t)}</time>${h.p.map(([n,s])=>`${esc(n)} <b>${esc(s)}</b>`).join(' · ')}${h.a.length?` <br>유물: ${h.a.map(esc).join(', ')}`:' <br>유물 없음'}</li>`).join('')}</ol>`
+    : `<p class="hint">아직 기록이 없습니다.</p>`;
+}
+function renderAll(anim){ renderPlayers(); renderDlc(); renderSurvPool(); renderArtPool(); renderCards(anim); renderArts(); renderHistory(); }
+
+/* ===== 이벤트 ===== */
+function doRollAll(){
+  const ids = rollSurvivors(); rollArtifacts(); pushHistory(); save();
+  renderCards(ids); renderArts(); renderHistory();
+}
+$('roll-all').addEventListener('click', doRollAll);
+$('roll-surv').addEventListener('click', ()=>{ const ids=rollSurvivors(); save(); renderCards(ids); });
+$('roll-art').addEventListener('click', ()=>{ rollArtifacts(); save(); renderArts(); });
+$('art-lock').addEventListener('click', ()=>{ S.artLocked=!S.artLocked; save(); renderArts(); });
+$('hist-clear').addEventListener('click', ()=>{ S.history=[]; save(); renderHistory(); });
+
+$('add-player').addEventListener('click', ()=>{
+  if(S.players.length>=16) return;
+  const p = newPlayer('플레이어 '+(S.players.length+1)); S.players.push(p);
+  rollSurvivors(p.id); save(); renderPlayers(); renderCards([p.id]);
+  const inp = $('pname-'+p.id); if(inp){ inp.focus(); inp.select(); }
+});
+$('plist').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  const id = b.closest('.prow').dataset.id; const p = S.players.find(x=>x.id===id); if(!p) return;
+  if(b.dataset.act==='remove' && S.players.length>1){ S.players = S.players.filter(x=>x!==p); }
+  else if(b.dataset.act==='mode'){
+    p.mode = b.dataset.mode; p.locked=false;
+    if(p.mode==='random'){ rollSurvivors(p.id); } else { p.result=null; }
+  } else return;
+  save(); renderPlayers(); renderCards(p.mode==='random'?[p.id]:null); renderArts();
+});
+$('plist').addEventListener('input', e=>{
+  if(!e.target.id.startsWith('pname-')) return;
+  const p = S.players.find(x=>x.id===e.target.id.slice(6)); if(!p) return;
+  p.name = e.target.value.trim() || '이름 없음';
+  const c = $('cn-'+p.id); if(c) c.textContent = p.name; save();
+});
+$('plist').addEventListener('change', e=>{
+  if(e.target.dataset.act!=='fix') return;
+  const p = S.players.find(x=>x.id===e.target.closest('.prow').dataset.id); if(!p) return;
+  p.fixed = e.target.value; save(); renderCards();
+});
+$('cards').addEventListener('click', e=>{
+  const b = e.target.closest('button'); if(!b) return;
+  const p = S.players.find(x=>x.id===b.closest('.card').dataset.id); if(!p) return;
+  if(b.dataset.act==='reroll'){ const ids=rollSurvivors(p.id); save(); renderCards(ids); }
+  if(b.dataset.act==='lock'){ p.locked=!p.locked; save(); renderCards(); }
+});
+$('dlc-row').addEventListener('click', e=>{
+  const b = e.target.closest('[data-dlc]'); if(!b) return;
+  S.dlc[b.dataset.dlc] = !S.dlc[b.dataset.dlc];
+  S.artResult = S.artResult.filter(id=>dlcOn(AV[id].dlc));
+  save(); renderPlayers(); renderDlc(); renderSurvPool(); renderArtPool(); renderCards(); renderArts();
+});
+$('surv-row').addEventListener('click', e=>{
+  const b = e.target.closest('[data-surv]'); if(!b || b.disabled) return;
+  const id=b.dataset.surv; S.survOff = S.survOff.includes(id) ? S.survOff.filter(x=>x!==id) : [...S.survOff,id];
+  save(); renderSurvPool();
+});
+$('surv-all').addEventListener('click', ()=>{ S.survOff=[]; save(); renderSurvPool(); });
+$('surv-none').addEventListener('click', ()=>{ S.survOff=SURV.map(s=>s.id); save(); renderSurvPool(); });
+$('allow-dup').addEventListener('change', e=>{ S.allowDup=e.target.checked; save(); });
+
+$('alist').addEventListener('change', e=>{
+  const id = e.target.dataset.art; if(!id) return;
+  if(e.target.checked) S.artOff = S.artOff.filter(x=>x!==id);
+  else { S.artOff = [...S.artOff,id]; S.artPin = S.artPin.filter(x=>x!==id); }
+  save(); renderArtPool();
+});
+$('alist').addEventListener('click', e=>{
+  const b = e.target.closest('[data-pin]'); if(!b) return;
+  const id=b.dataset.pin;
+  if(S.artPin.includes(id)) S.artPin = S.artPin.filter(x=>x!==id);
+  else { S.artPin=[...S.artPin,id]; S.artOff=S.artOff.filter(x=>x!==id); }
+  save(); renderArtPool();
+});
+$('art-all').addEventListener('click', ()=>{ S.artOff=[]; save(); renderArtPool(); });
+$('art-none').addEventListener('click', ()=>{ S.artOff=ART.map(a=>a.id); S.artPin=[]; save(); renderArtPool(); });
+function clampNum(v){ v=parseInt(v,10); return isNaN(v)?0:Math.max(0,Math.min(20,v)); }
+$('art-min').addEventListener('change', e=>{ S.artMin=clampNum(e.target.value); if(S.artMin>S.artMax) S.artMax=S.artMin; save(); renderArtPool(); });
+$('art-max').addEventListener('change', e=>{ S.artMax=clampNum(e.target.value); if(S.artMax<S.artMin) S.artMin=S.artMax; save(); renderArtPool(); });
+
+function resultText(){
+  const lines = ['[RoR2 런 추첨]'];
+  S.players.forEach(p=>{
+    if(p.mode==='fixed') lines.push(`${p.name} — ${p.fixed?SV[p.fixed].ko+' ('+SV[p.fixed].en+', 직접)':'자유 선택'}`);
+    else lines.push(`${p.name} — ${p.result?SV[p.result].ko+' ('+SV[p.result].en+')':'배정 실패'}`);
+  });
+  lines.push('유물: '+(S.artResult.length?S.artResult.map(id=>AV[id].ko).join(', '):'없음'));
+  return lines.join('\n');
+}
+function toast(t){ const el=$('toast'); el.textContent=t; clearTimeout(toast._t); toast._t=setTimeout(()=>{el.textContent='';},2200); }
+$('copy').addEventListener('click', ()=>{
+  const txt = resultText(); const out=$('copyout');
+  const fallback = ()=>{ out.hidden=false; out.value=txt; out.focus(); out.select(); toast('자동 복사가 막혀 있어요. 아래 텍스트를 직접 복사하세요.'); };
+  try{
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(()=>{ out.hidden=true; toast('복사했습니다. 디스코드에 붙여 넣으세요.'); }, fallback);
+    } else fallback();
+  }catch(e){ fallback(); }
+});
+
+/* ===== 시작 ===== */
+if(firstRun){ rollSurvivors(); rollArtifacts(); pushHistory(); save(); renderAll(); }
+else renderAll();
+</script>
